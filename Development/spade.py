@@ -47,19 +47,19 @@ def create_dir(des):
     dataset_dir = 'processed_data'
 
     #creating main directory
-    main_path = des + '/' + main_dir
+    main_path = des + '\\' + main_dir
     mkdir(main_path)
 
     #creating directory for dataset
-    dataset_path = main_path + '/' + dataset_dir
+    dataset_path = main_path + '\\' + dataset_dir
     mkdir(dataset_path)
 
     for folder in folders_to_create:
-        folder_path = dataset_path + '/' + folder
+        folder_path = dataset_path + '\\' + folder
         mkdir(folder_path)
 
 
-    mkdir(main_path + '/' + 'info_files')
+    mkdir(main_path + '\\' + 'info_files')
     
 #def create_system_info_file(des, ): #postponed till futther discussion
     
@@ -76,12 +76,15 @@ def fetch_system_info(addr):
     Channel names: a list object
     Sampling frequency: an integer
     '''
-    addr = addr + '//info_files//system_info.txt'
-    system_info = pd.read_csv(addr, sep = '\t').as_matrix()
+    addr = addr + '\\info_files\\system_info.txt'
+    system_info = pd.read_csv(addr, sep = '\t', header = None).values
+    channels = system_info[1,1].split(',')
+    channels = [ int(i) for i in channels]
     #system_info[0,1] gives the number of channels
-    #system_info[1,1] gives the string of channel names separated by commas
+    #system_info[1,1] gives the string of channels separated by commas
     #system_info[2,1] gives sampling frequency
-    return int(system_info[0,1]), str(system_info[1,1]).split(sep = ','), int(system_info[2,1])
+    #return int(system_info[0,1]), str(system_info[1,1]).split(sep = ','), int(system_info[2,1])
+    return int(system_info[0,1]), channels, (system_info[2,1])
    
    
 #def create_preictal_info_file(des, ): #postponed till futther discussion
@@ -100,8 +103,8 @@ def fetch_preictal_info(addr):
     containing seizure, start time of the seizure in that file, minutes of the preictal data that 
     can be extracted safely having atleast 1 hour time gap from any other seizure activity 
     '''
-    addr = addr + '//info_files//preictal_info.txt'
-    preictal_info = pd.read_csv(addr, sep = '\t').as_matrix()
+    addr = addr + '\\info_files\\preictal_info.txt'
+    preictal_info = pd.read_csv(addr, sep = '\t').values
 
     return preictal_info
     
@@ -119,8 +122,8 @@ def fetch_interictal_info(addr):
     containing seizure, start time of the seizure in that file, minutes of the preictal data that 
     can be extracted safely having atleast 1 hour time gap from any other seizure activity 
     '''
-    addr = addr + '//info_files//preictal_info.txt'
-    preictal_info = pd.read_csv(addr, sep = '\t').as_matrix()
+    addr = addr + '\\info_files\\preictal_info.txt'
+    preictal_info = pd.read_csv(addr, sep = '\t').values
 
     return preictal_info
 
@@ -136,6 +139,7 @@ def splitArray(seizure, length):
     
     
     '''
+    print 'Shape of seizure block passed in splitArray function: ',seizure.shape,' and length = ',length
     num_of_splits = int(floor(seizure.shape[1]/length))
     print('Number of splits are coming out to be ',num_of_splits)
     splits = np.zeros((num_of_splits, seizure.shape[0],int(length)))
@@ -151,11 +155,12 @@ def extract_seizure_data(src, des, preictal_info, interictal_info, sampling_freq
     
     
     '''
-    des = des + '//processed_data'
-    # declaring array variable to keep counter of number of files in each folder 
-    # index 0 will keep counter for "preictal_5_10"; index 11 will keep counter for "preictal_10_15"
+    testing = True
+    des = des + '\\processed_data'
+    # declaring dictionary variable to keep counter of number of files in each folder 
+    # index 0 will keep counter for "preictal_5_10"; index 1 will keep counter for "preictal_10_15"
     # and so on till index 10 for "preictal_55_60"
-    # Index 11 is for keeping counter for "interictal"
+    
     counter = {'preictal_5_10':0, 'preictal_10_15':0, 'preictal_15_20':0, 'preictal_20_25':0, 'preictal_25_30':0, 'preictal_30_35':0, 
                'preictal_35_40':0, 'preictal_40_45':0, 'preictal_45_50':0, 'preictal_50_55':0, 'preictal_55_60':0}
     
@@ -175,15 +180,17 @@ def extract_seizure_data(src, des, preictal_info, interictal_info, sampling_freq
         #checking whether to load previous seizure file 
         if  (start_time[file_sno]-(prediction_start_time[file_sno]*60) ) >= 0:
             # Reading data from .edf file
-            f = pyedflib.EdfReader(src +'//' + seizure_filename[file_sno])
+            f = pyedflib.EdfReader(src +'\\' + seizure_filename[file_sno])
             n = f.signals_in_file
             seizure_file = np.zeros((n, f.getNSamples()[0]))
         
             for i in np.arange(n):
                 seizure_file[i, :] = f.readSignal(i)  
                 
+            seizure_prev_file = 'invalid'
             print('Reading done!!!')
             
+        
                               
         else:
             print('-----Seizure data is in both files----')
@@ -205,41 +212,47 @@ def extract_seizure_data(src, des, preictal_info, interictal_info, sampling_freq
                     seizure_prev_file[i, :] = f.readSignal(i)
                     
             else:
-                seizure_prev_file = None
+                seizure_prev_file = 'invalid'
                     
             print('Reading done!!!')
         
-        
-        count = 0
-        while(prediction_start_time[file_sno]>5):
+        #extracting preictal block
+        #conditions to select seizure
+        if type(seizure_prev_file) != str:
+            #extracting component from seizure_prev part
+            start_index = seizure_prev_file.shape[1]- (prediction_start_time[file_sno]*60 - start_time[file_sno])*sampling_freq
+            #part1 = seizure_prev_file[:,start_index:]
+            end_index = (start_time[file_sno] - 5*60)*sampling_freq
+            #part2 = seizure_file[:,0:end_index]
             
-            #conditions to select seizure
-            if seizure_prev_file != None:
-                #extracting component from seizure_prev part
-                start_index = seizure_prev_file.shape[1]- (prediction_start_time[file_sno]*60 - start_time[file_sno])*sampling_freq
-                #part1 = seizure_prev_file[:,start_index:]
-                end_index = (start_time[file_sno] - prediction_start_time[file_sno]*60 + (prediction_start_time[file_sno]-5)*60)*sampling_freq
-                #part2 = seizure_file[:,0:end_index]
-                
+            if start_index >= 0:
                 #concatening both
                 seizure = np.concatenate((seizure_prev_file[:,start_index:],seizure_file[:,0:end_index]), axis = 1)
                 print('Seizure data extracted!!!!')
+            else:
+                start_time = (seizure_prev_file.shape[1] + start_time[file_sno]*sampling_freq)%(5*60)  #in multiples of 5
+                prediction_start_time[file_sno] = ((len(seizure_prev_file[0,start_time:])/sampling_freq) + start_time[file_sno] )/60
+            
+        else:
+            
+            if ((start_time[file_sno] - prediction_start_time[file_sno]*60) > 0):
+                start_index = (start_time[file_sno] - prediction_start_time[file_sno]*60)*sampling_freq
+                seizure = seizure_file[:,start_index: (start_time[file_sno]-300)*sampling_freq]
                 
             else:
-                if ((start_time[file_sno] - prediction_start_time[file_sno]*60) > 0):
-                    start_index = seizure_file.shape[1] - (prediction_start_time[file_sno]*60 - start_time[file_sno])*sampling_freq
-                    seizure = seizure_file[:,start_index: (start_time[file_sno]-300)*sampling_freq]
-                    
+                if (start_time[file_sno]<600):
+                    break
                 else:
-                    if (start_time[file_sno]<600):
-                        break
-                    else:
-                        start_index = (start_time[file_sno] % 300)*sampling_freq
-                        seizure = seizure_file[:,start_index:(start_time[file_sno]-300)*sampling_freq]
-                        prediction_start_time[file_sno] = int(seizure.shape[1]/sampling_freq)
-                        
-            seizure_block = seizure[:,count*300:(count+1)*300]
-            
+                    start_index = (start_time[file_sno] % 300)*sampling_freq
+                    seizure = seizure_file[:,start_index:(start_time[file_sno]-300)*sampling_freq]
+                    prediction_start_time[file_sno] = int(seizure.shape[1]/sampling_freq)
+        
+        print 'Shape of seizure array: ', seizure.shape
+        count = 0
+        while(prediction_start_time[file_sno]>5):
+                                   
+            seizure_block = seizure[:,count*300*sampling_freq:(count+1)*300*sampling_freq]
+            print 'Shape of seizure_block array: ', seizure_block.shape
             #epoching that seizure block
             # fname_std : it gives the address of the required folder ex preictal_55_60
             fname_std =  'preictal_'+str(prediction_start_time[file_sno]-5)+'_'+str(prediction_start_time[file_sno])
@@ -344,37 +357,96 @@ def extract_features(coefs):
 
 
 
-def createDataset(addr, folder_name, num_of_channels = 23, sampling_freq = 256, channels = None):
+def createDataset_preictal(addr, start_time, end_time, num_of_channels = 23, sampling_freq = 256, channels = None, time_window = 10):
     '''
     addr: Address of the SPADE folder ex. ..../SPADE
     folder_name: The name of the folder which contains the epochs of which you want to create dataset of 
     '''
+    if start_time < 5:
+        start_time = 5
+    if end_time > 60:
+        end_time = 60
+    if end_time%5 != 0:
+        end_time = end_time - (end_time%5)
+    if start_time%5 != 0:
+        start_time = start_time + (5 - (start_time%5))
+        
+    if start_time >= end_time:
+        print 'Illegal inputs'
+        return
     
-    addr = addr + '//processed_data'
-    folder_addr = addr + '//' + folder_name
+    level = 4
+    number_of_features_extracted = 5
     if channels == None:
-        channels = range(num_of_channels)
+            channels = range(num_of_channels)
+    size_of_feature_vector = len(channels)*(2**level)*number_of_features_extracted
+    
+    addr = addr + '\\processed_data'
+    
+    while(start_time < end_time):
+        folder_name = 'preictal_' + str(start_time) + '_' + str(start_time + 5)
+        folder_addr = addr + '\\' + folder_name
+        
+            
+        files = []
+    
+        for file_name in os.listdir(folder_addr):
+            if file_name.endswith(".csv"):
+                files.append(folder_addr + '\\' + file_name)
+        
+        ictal = np.zeros((len(files),len(channels),time_window*sampling_freq))
+        count = 0
+        for f in files:
+            ictal[count,:,:] = (pd.read_csv(f,header=None)).values
+            if(count%50==0):    
+                print(count)
+            count = count + 1
+        
+       
+        
+        
+        #intializing dataset
+        ictal_feature_data = np.zeros((len(ictal), size_of_feature_vector))
+        
+        #creating dataset
+        i=0
+        for epoch in ictal:
+            feature_vector = []
+            for ch in channels:
+                coefficients = WPD(epoch[ch,:],level)
+                features = extract_features( coefficients )
+                feature_vector.extend(features)
+                
+            ictal_feature_data[i,:] = feature_vector
+            i = i+1
+            if (i%20==0):
+                print(i)
+        
+        np.savetxt(addr + '\\' + (folder_name + '_featureData.csv'),
+                   ictal_feature_data,fmt = '%f', delimiter = ',')
+                   
+        start_time = start_time + 5
+        
+    
+    #creating interictal dataset
+    folder_name = 'interictal'
+    folder_addr = addr + '\\' + folder_name
+        
     files = []
-
     for file_name in os.listdir(folder_addr):
         if file_name.endswith(".csv"):
-            files.append(folder_addr + '//' + file_name)
+            files.append(folder_addr + '\\' + file_name)
     
-    ictal = np.zeros((len(files),num_of_channels,sampling_freq))
+    ictal = np.zeros((len(files),len(channels),time_window*sampling_freq))
     count = 0
     for f in files:
-        ictal[count,:,:] = (pd.read_csv(f,header=None)).as_matrix()
+        ictal[count,:,:] = (pd.read_csv(f,header=None)).values
         if(count%50==0):    
             print(count)
         count = count + 1
-    
-    # Performing wavelet Packet decomposition
-    level = 4
-    number_of_features_extracted = 5
-    size_of_feature_vector = len(channels)*(2**level)*number_of_features_extracted
-    
+       
     #intializing dataset
-    ictal_feature_data = np.zeros((len(ictal_files), size_of_feature_vector))
+    ictal_feature_data = np.zeros((len(ictal), size_of_feature_vector))
     
     #creating dataset
     i=0
@@ -390,25 +462,47 @@ def createDataset(addr, folder_name, num_of_channels = 23, sampling_freq = 256, 
         if (i%20==0):
             print(i)
     
-    np.savetxt(addr + '//' + (folder_name + '_featureData.csv'),
+    np.savetxt(addr + '\\' + (folder_name + '_featureData.csv'),
                ictal_feature_data,fmt = '%f', delimiter = ',')
-           
           
-          
+      
 
-def trainModel(addr,preictal_filename):
+
+def trainModel(addr,start_time, end_time, feature_selection = False):
     '''
     addr: addr: Address of the SPADE folder ex. ..../SPADE
     
+    filenames - list of filenames
+    start_time and end_times are in  minutes; range 5 - 60 and should be multiple of 5
     '''
     
-    addr = addr + '//processed_data'
+    addr = addr + '\\processed_data'
     
-    preictal_feature_data = (pd.read_csv(addr + '//' + preictal_filename,
-                                    header = None)).as_matrix()
+    if start_time < 5:
+        start_time = 5
+    if end_time > 60:
+        end_time = 60
+    if end_time%5 != 0:
+        end_time = end_time - (end_time%5)
+    if start_time%5 != 0:
+        start_time = start_time + (5 - (start_time%5))
+        
+    if start_time >= end_time:
+        print 'Illegal inputs'
+        return
+        
+    preictal_feature_data = (pd.read_csv(addr + '\\preictal_' + str(start_time) + '_' + str(start_time + 5) + '_featureData.csv',
+                                    header = None)).values
+    start_time = start_time + 5
+    while(start_time < end_time):
+        next_preictal_file_data = (pd.read_csv(addr + '\\preictal_' + str(start_time) + '_' + str(start_time + 5) + '_featureData.csv',
+                                    header = None)).values
+        
+        preictal_feature_data = np.concatenate((preictal_feature_data, next_preictal_file_data), axis = 0)
+        start_time = start_time + 5
 
-    interictal_feature_data = (pd.read_csv(addr + '//interictal_featureData.csv',
-                                        header = None)).as_matrix()
+    interictal_feature_data = (pd.read_csv(addr + '\\interictal_featureData.csv',
+                                        header = None)).values
                                     
     random_values = set()
     while True:
@@ -425,15 +519,17 @@ def trainModel(addr,preictal_filename):
     Y = np.concatenate((zero_col,one_col), axis = 0)
     X = np.concatenate((interictal_feature_data,preictal_feature_data),axis = 0) #concatenate along rows
     
-
+    
     #Fitting the SVM to the Training set
     classifier = SVC(kernel = 'linear',random_state=0)
     
-    print 'RFE has started'
-    selector = RFE(classifier, 110)
-    X = selector.fit_transform(X,Y)
+    if feature_selection == True:
+        print 'RFE has started'
+        selector = RFE(classifier, 110)
+        X = selector.fit_transform(X,Y)
     
     x_train, x_test, y_train, y_test = train_test_split(X,Y, test_size=0.20, random_state = 5)        
+    print 'Training of the model has started....'
     classifier.fit(x_train,y_train)        
     #Predicting the test results
     y_pred = classifier.predict(x_test)    
@@ -458,23 +554,25 @@ def trainModel(addr,preictal_filename):
     print 'f1_Score = ',f1Score, '\n\n\n\n'
     
     #Noting down selected features
-
-    selected_features = selector.get_support()
-    features = []
-    for i in range(1,len(preictal_feature_data[0]) + 1):
-        if selected_features[i-1]==True:
-            features.append(i)
-    print 'features_selected = ',features
+    if feature_selection == True:
+        selected_features = selector.get_support()
+        features = []
+        for i in range(1,len(preictal_feature_data[0]) + 1):
+            if selected_features[i-1]==True:
+                features.append(i)
+        print 'features_selected = ',features
     
     associated_information = " Accuracy = " + str(acc*100) + '\nSensitivity = ' + str(sensitivity*100) + '\nSpecificity = ' + \
     str(specificity*100) + '\nPrecision = ' + str(precision) + '\nAuc_Roc_Score = ' + str(roc_score) + \
     '\f1_score = ' + str(f1Score)
     
     #saving model
-    joblib.dump(classifier, addr +'//'+ interictal_filename[:(interictal_filename.find('f'))] + 'trainedModel.pkl' )
-    #saving results
-    np.savetxt( addr +'//'+ interictal_filename[:(interictal_filename.find('f'))] + 'results.txt', associated_information )
-    #saving selected features
-    np.savetxt( addr +'//'+ interictal_filename[:(interictal_filename.find('f'))] + 'selectedFeatures.csv', features, delimiter = ',')
+    joblib.dump(classifier, addr +'\\preictal_' + str(start_time) + '_' + str(end_time) + '_trainedModel.pkl' )
+    #saving results    
+    np.savetxt( addr +'\\preictal_' + str(start_time) + '_' + str(end_time) + 'results.txt', associated_information )
+    
+    if feature_selection == True:
+        #saving selected features
+        np.savetxt( addr + '\\preictal_' + str(start_time) + '_' + str(end_time) + '_selectedFeatures.csv', features, delimiter = ',')
     
     
