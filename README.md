@@ -1,2 +1,8 @@
 # Seizure Prediction And Detection Engine (S.P.A.D.E)
 
+## Dataset Description - [CHB-MIT Scalp EEG Database](https://physionet.org/content/chbmit/1.0.0/)
+This database, collected at the Children’s Hospital Boston, consists of EEG recordings from pediatric subjects with intractable seizures. Subjects were monitored for up to several days following withdrawal of anti-seizure medication.
+
+Recordings, grouped into 23 cases, were collected from 22 subjects (5 males, ages 3–22; and 17 females, ages 1.5–19). The file SUBJECT-INFO contains the gender and age of each subject.nEach case (chb01, chb02, etc.) contains between 9 and 42 continuous .edf files from a single subject. In most cases, the .edf files contain exactly one hour of digitized EEG signals; occasionally, files in which seizures are recorded are shorter. All signals were sampled at 256 samples per second with 16-bit resolution. Most files contain 23 EEG signals (24 or 26 in a few cases). The International 10-20 system of EEG electrode positions and nomenclature was used for these recordings.
+
+The file RECORDS contains a list of all 664 .edf files included in this collection, and the file RECORDS-WITH-SEIZURES lists the 129 of those files that contain one or more seizures. In all, these records include 198 seizures (182 in the original set of 23 cases); the beginning ([) and end (]) of each seizure is annotated in the .seizure annotation files that accompany each of the files listed in RECORDS-WITH-SEIZURES. In addition, the files named chbnn-summary.txt contain information about the montage used for each recording, and the elapsed time in seconds from the beginning of each .edf file to the beginning and end of each seizure contained in it.
